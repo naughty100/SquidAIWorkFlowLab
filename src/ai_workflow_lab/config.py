@@ -26,6 +26,7 @@ class LabSettings(BaseSettings):
     ai_model: str | None = None
     ai_timeout_seconds: float = Field(default=60.0, gt=0, le=600)
     ai_max_retries: int = Field(default=2, ge=0, le=10)
+    ai_max_output_tokens: int = Field(default=1200, ge=64, le=32000)
     ai_structured_output_method: str = "auto"
 
     lab_output_dir: Path = Path("data/outputs")

@@ -52,4 +52,3 @@ def test_explicit_unknown_method_is_rejected() -> None:
 def test_no_supported_method_does_not_guess() -> None:
     with pytest.raises(StructuredOutputResolutionError, match="没有已确认支持"):
         resolve_structured_output_method(report())
-

@@ -96,6 +96,32 @@ data/
 
 `summary.json` 还会记录所用 dotenv 配置档案的路径、模型名和 Provider host，但不会记录配置内容或 API Key。
 
+## 实验一：结构化输出
+
+实验一使用同一个内容选题案例，对照三种结构化输出路径：
+
+```powershell
+# 默认离线 Mock，不访问网络
+lab run exp01 --mode mock --variant prompt-parse
+lab run exp01 --mode mock --variant sdk-native
+lab run exp01 --mode mock --variant langchain-native
+
+# 显式使用真实 Provider
+lab run exp01 --mode live --variant prompt-parse -e .env.deepseek
+lab run exp01 --mode live --variant sdk-native -e .env.openai
+lab run exp01 --mode live --variant langchain-native -e .env.openai
+```
+
+native variant 会读取当前模型最近一次 `doctor --live` 的能力报告，并在调用前将机制冻结为 `json_schema`、`tool_calling` 或 `json_mode`。没有明确 supported 的机制时，运行记录为 `unsupported` 且不会发起模型请求。LangChain 路径始终显式指定对应机制，不使用自动选择。
+
+查看某次运行的脱敏摘要：
+
+```powershell
+lab runs show RUN_ID
+```
+
+摘要分别展示 `transport_success_rate` 与 `schema_validity_rate_among_successes`；网络或限流失败不会被算作 Schema 失败。每次运行还会保存固定案例版本、输入/Prompt/Schema hash、调用次数、合法结果或校验错误。
+
 ## 安全边界
 
 - `.env`、输出、runtime 和 cache 默认忽略；

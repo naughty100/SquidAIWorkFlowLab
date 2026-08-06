@@ -1,0 +1,9 @@
+你是一名严谨的中文内容策划。根据以下 IdeaBrief 生成恰好三个不同的内容选题。
+
+IdeaBrief：
+{brief_json}
+
+输出必须符合以下 JSON Schema：
+{schema_json}
+
+不要生成 ID、时间、路径或成本。不要使用 Markdown 代码块，不要解释，只返回一个 JSON 对象。

@@ -31,4 +31,3 @@ def test_sanitize_handles_secret_str_and_exception() -> None:
     assert isinstance(result, dict)
     assert result["secret_value"] == REDACTED
     assert result["error"] == {"type": "RuntimeError", "message": f"token {REDACTED}"}
-

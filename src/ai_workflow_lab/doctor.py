@@ -276,7 +276,7 @@ def local_checks(settings: LabSettings, *, project_root: Path | None = None) -> 
             detail="uv.lock" if (root / "uv.lock").is_file() else "uv.lock 不存在",
         ),
     ]
-    for module in ("openai", "pydantic", "typer"):
+    for module in ("openai", "langchain_openai", "pydantic", "typer"):
         checks.append(
             LocalCheck(
                 name=f"dependency:{module}",

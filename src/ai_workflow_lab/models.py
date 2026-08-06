@@ -28,4 +28,3 @@ class FixedResponseModel:
         del messages
         chunks: Iterable[str] = self.stream_chunks or (self.response,)
         yield from chunks
-

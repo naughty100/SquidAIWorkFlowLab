@@ -9,6 +9,7 @@ description = "用于学习、验证和复盘 AI 工作流能力的本地实验�
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "langchain-openai>=1.0,<2",
     "openai>=2.0,<3",
     "pydantic>=2.11,<3",
     "pydantic-settings>=2.10,<3",

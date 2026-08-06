@@ -120,6 +120,15 @@ class RunRecorder:
         _write_json(target, sanitized)
         return target
 
+    def update_summary(self, values: dict[str, object]) -> None:
+        """在结束前补充命令专属的可复现摘要字段。"""
+        if self._finished:
+            raise RuntimeError("已结束的 run 不可再更新摘要")
+        sanitized = sanitize(values, secrets=self.settings.secret_values)
+        assert isinstance(sanitized, dict)
+        self._summary.update(sanitized)
+        self._persist_summary()
+
     def finish(self, status: Literal["succeeded", "failed"], *, details: object = None) -> None:
         """完成 run；重复调用不会写入第二个结束事件。"""
         if self._finished:

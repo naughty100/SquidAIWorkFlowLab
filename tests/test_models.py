@@ -6,4 +6,3 @@ def test_fixed_response_model_never_depends_on_input() -> None:
 
     assert model.invoke([{"role": "user", "content": "ignored"}]) == "fixed"
     assert list(model.stream([])) == ["fi", "xed"]
-

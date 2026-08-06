@@ -96,4 +96,3 @@ def resolve_structured_output_method(
             f"结构化输出机制 {method.value} 当前状态为 {result.status.value}"
         )
     return method
-
