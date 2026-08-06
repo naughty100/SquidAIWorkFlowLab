@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyright/
+
+# Environments and local configuration
+.venv/
+.env
+.env.*
+!.env.example
+
+# Local experiment data
+data/outputs/*
+!data/outputs/.gitkeep
+data/runtime/*
+!data/runtime/.gitkeep
+data/cache/*
+!data/cache/.gitkeep
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
