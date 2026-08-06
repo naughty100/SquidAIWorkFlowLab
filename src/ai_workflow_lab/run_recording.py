@@ -80,6 +80,7 @@ class RunRecorder:
             "git_commit": _git_commit(self.project_root),
             "python_version": platform.python_version(),
             "dependency_lock_hash": _sha256_file(self.project_root / "uv.lock"),
+            "env_file": settings.env_file_label,
             "model": settings.ai_model,
             "base_url_host": settings.base_url_host,
             "trace_schema_version": TRACE_SCHEMA_VERSION,
@@ -128,4 +129,3 @@ class RunRecorder:
         self._summary["finished_at"] = _utc_now()
         self._persist_summary()
         self._finished = True
-

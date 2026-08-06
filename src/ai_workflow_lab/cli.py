@@ -1,5 +1,8 @@
 """AI Workflow Lab 命令行入口。"""
 
+from pathlib import Path
+from typing import Annotated
+
 import typer
 
 from ai_workflow_lab.config import LabSettings
@@ -21,10 +24,25 @@ def main() -> None:
 @app.command()
 def doctor(
     live: bool = typer.Option(False, "--live", help="显式执行外部模型能力探测。"),
+    env_file: Annotated[Path | None, typer.Option(
+        "--env-file",
+        "-e",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        readable=True,
+        resolve_path=True,
+        help="指定 dotenv 配置档案，例如 .env.deepseek；未指定时读取 .env。",
+    )] = None,
 ) -> None:
     """检查本地实验环境和可选的 Provider 能力。"""
-    settings = LabSettings()
-    recorder = RunRecorder(settings, command="doctor --live" if live else "doctor")
+    settings = LabSettings.from_env_file(env_file)
+    command_parts = ["doctor"]
+    if live:
+        command_parts.append("--live")
+    if env_file is not None:
+        command_parts.extend(["--env-file", str(env_file)])
+    recorder = RunRecorder(settings, command=" ".join(command_parts))
     try:
         report = run_doctor(settings, live=live)
         report.run_id = recorder.run_id

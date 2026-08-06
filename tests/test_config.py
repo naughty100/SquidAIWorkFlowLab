@@ -35,3 +35,21 @@ def test_secret_values_only_contains_non_empty_keys(tmp_path: Path) -> None:
     )
 
     assert settings.secret_values == ("secret-value",)
+
+
+def test_settings_can_load_a_named_env_file(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env.deepseek"
+    env_file.write_text(
+        "AI_BASE_URL=https://example.com/v1\nAI_API_KEY=profile-key\nAI_MODEL=profile-model\n",
+        encoding="utf-8",
+    )
+
+    settings = LabSettings.from_env_file(env_file)
+
+    assert settings.ai_model == "profile-model"
+    assert settings.env_file_label == str(env_file.resolve())
+
+
+def test_named_env_file_must_exist(tmp_path: Path) -> None:
+    with pytest.raises(ConfigurationError, match="环境配置文件不存在"):
+        LabSettings.from_env_file(tmp_path / ".env.missing")

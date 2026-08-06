@@ -51,6 +51,25 @@ AI_MODEL=your-model-name
 uv run --locked lab doctor --live
 ```
 
+### 多模型配置档案
+
+可以维护多个本地 dotenv 文件，无需复制或覆盖 `.env`。例如：
+
+```text
+.env.deepseek
+.env.openai
+.env.qwen
+```
+
+它们与 `.env` 一样填写 `AI_BASE_URL`、`AI_API_KEY` 和 `AI_MODEL`，且都被 Git 忽略。运行时显式选择：
+
+```powershell
+uv run --locked lab doctor --live --env-file .env.deepseek
+uv run --locked lab doctor --live --env-file .env.openai
+```
+
+也可使用短参数 `-e`。未提供 `--env-file` 时仍读取默认 `.env`。操作系统中已设置的同名环境变量优先级高于 dotenv 文件；若要得到可复现的配置档案测试，请避免在终端或系统中设置 `AI_*` 覆盖值。
+
 该命令会产生少量真实模型调用，依次探测 chat、streaming、tool calling、JSON mode 和 JSON schema。能力状态含义：
 
 - `supported`：探测获得符合预期的能力响应；
@@ -74,6 +93,8 @@ data/
 - `events.jsonl`：经过脱敏的逻辑事件轨迹；
 - `capabilities.json`：Provider 能力报告；
 - `artifacts/`：超过内联阈值的大文本 gzip JSON。
+
+`summary.json` 还会记录所用 dotenv 配置档案的路径、模型名和 Provider host，但不会记录配置内容或 API Key。
 
 ## 安全边界
 

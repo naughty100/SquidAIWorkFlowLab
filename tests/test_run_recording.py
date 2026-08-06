@@ -42,3 +42,4 @@ def test_run_recorder_redacts_and_externalizes_before_persisting(tmp_path: Path)
     assert summary["run_id"] == "run-1"
     assert summary["status"] == "succeeded"
     assert summary["dependency_lock_hash"]
+    assert summary["env_file"] == ".env"

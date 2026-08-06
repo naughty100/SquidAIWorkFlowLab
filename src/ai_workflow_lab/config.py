@@ -3,7 +3,7 @@
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, PrivateAttr, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -32,6 +32,26 @@ class LabSettings(BaseSettings):
     lab_runtime_dir: Path = Path("data/runtime")
     lab_cache_dir: Path = Path("data/cache")
     lab_artifact_inline_threshold: int = Field(default=2048, ge=256, le=1_000_000)
+
+    _loaded_env_file: Path | None = PrivateAttr(default=None)
+
+    @classmethod
+    def from_env_file(cls, env_file: Path | None = None) -> "LabSettings":
+        """从指定的 dotenv 配置档案加载设置；未指定时沿用默认 `.env`。"""
+        if env_file is None:
+            return cls()
+
+        resolved = env_file.expanduser().resolve()
+        if not resolved.is_file():
+            raise ConfigurationError(f"环境配置文件不存在或不是文件：{resolved}")
+        settings = cls(_env_file=resolved)  # type: ignore[call-arg]
+        settings._loaded_env_file = resolved
+        return settings
+
+    @property
+    def env_file_label(self) -> str:
+        """返回可安全写入运行摘要的配置档案标识，不包含任何配置值。"""
+        return str(self._loaded_env_file) if self._loaded_env_file is not None else ".env"
 
     @field_validator("ai_base_url")
     @classmethod
@@ -77,4 +97,3 @@ class LabSettings(BaseSettings):
         if missing:
             joined = ", ".join(missing)
             raise ConfigurationError(f"live 模式缺少配置：{joined}")
-
