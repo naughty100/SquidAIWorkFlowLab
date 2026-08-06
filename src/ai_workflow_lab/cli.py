@@ -18,6 +18,7 @@ app = typer.Typer(
 )
 run_app = typer.Typer(help="运行实验。", no_args_is_help=True)
 runs_app = typer.Typer(help="查看本地运行记录。", no_args_is_help=True)
+# 采用子命令分组 为后续 exp02/exp03 增长预留稳定入口
 app.add_typer(run_app, name="run")
 app.add_typer(runs_app, name="runs")
 
@@ -97,6 +98,7 @@ def run_structured_output_experiment(
 ) -> None:
     """运行实验一的单个结构化输出 variant。"""
     settings = LabSettings.from_env_file(env_file)
+    # 命令文本写进 summary 以便复盘时定位配置档案
     command = f"run exp01 --case {case_id} --mode {mode.value} --variant {variant.value}"
     if env_file is not None:
         command += f" --env-file {env_file}"
@@ -147,6 +149,7 @@ def show_run(
     summary_path = (root / "commands" / run_id / "summary.json").resolve()
     commands_root = (root / "commands").resolve()
     if not summary_path.is_relative_to(commands_root) or not summary_path.is_file():
+        # 防止 RUN_ID 被构造成目录穿越路径 并避免读取非实验文件
         raise typer.BadParameter(f"运行记录不存在：{run_id}", param_hint="RUN_ID")
     typer.echo(summary_path.read_text(encoding="utf-8"))
 

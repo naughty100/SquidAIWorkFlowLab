@@ -16,6 +16,7 @@ def find_latest_capability_report(
     *,
     project_root: Path | None = None,
 ) -> CapabilityReport:
+    """查找与当前模型和 Provider 完全匹配的最新 live 能力报告。"""
     root = (project_root or Path.cwd()).resolve()
     output_root = settings.lab_output_dir
     if not output_root.is_absolute():
@@ -29,8 +30,10 @@ def find_latest_capability_report(
         try:
             report = CapabilityReport.model_validate_json(path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
+            # 运行目录可能被手动清理或包含旧格式文件 跳过即可
             continue
         if (
+            # 不能复用其他模型或其他 Provider 的能力结论。
             report.live
             and report.model == settings.ai_model
             and report.base_url_host == settings.base_url_host
@@ -46,6 +49,7 @@ def freeze_native_method(
     *,
     project_root: Path | None = None,
 ) -> StructuredOutputMethod:
-    """在模型调用前解析一次具体机制，后续运行不得自动切换。"""
+    """在模型调用前解析并冻结一个明确 supported 的 native 机制。"""
+    # 在一次 run 的开始解析并固定机制 运行过程中绝不静默 fallback
     report = find_latest_capability_report(settings, project_root=project_root)
     return resolve_structured_output_method(report, settings.ai_structured_output_method)

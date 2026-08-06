@@ -89,6 +89,7 @@ class RunRecorder:
         self.record_event("run.started", {"command": command})
 
     def _persist_summary(self) -> None:
+        """将当前运行摘要脱敏后原子写入磁盘。"""
         sanitized = sanitize(self._summary, secrets=self.settings.secret_values)
         _write_json(self.summary_path, sanitized)
 
@@ -124,6 +125,7 @@ class RunRecorder:
         """在结束前补充命令专属的可复现摘要字段。"""
         if self._finished:
             raise RuntimeError("已结束的 run 不可再更新摘要")
+        # 先脱敏再合并 避免调用方直接把敏感字段写进 summary
         sanitized = sanitize(values, secrets=self.settings.secret_values)
         assert isinstance(sanitized, dict)
         self._summary.update(sanitized)

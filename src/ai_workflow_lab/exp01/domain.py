@@ -20,7 +20,10 @@ class IdeaBrief(BaseModel):
 
 
 class TopicOptionDraft(BaseModel):
-    """只包含允许模型生成的字段。"""
+    """只包含允许模型生成的字段。
+
+    稳定标识符由应用在校验完成后补齐，避免模型伪造确定性数据。
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -32,7 +35,7 @@ class TopicOptionDraft(BaseModel):
 
 
 class TopicOptionsDraft(BaseModel):
-    """三个 variant 共用的模型响应 Schema。"""
+    """三个 variant 共用的模型响应容器。"""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -54,6 +57,7 @@ class TopicOptions(BaseModel):
 
 
 def _slug_source(value: str) -> str:
+    """规范化参与 ID 派生的文本，消除大小写与连续空白差异。"""
     return re.sub(r"\s+", " ", value.strip().casefold())
 
 
@@ -61,6 +65,7 @@ def finalize_topic_options(draft: TopicOptionsDraft) -> TopicOptions:
     """以规范化内容和位置派生 ID；相同合法输出始终得到相同 ID。"""
     finalized: list[TopicOption] = []
     for index, option in enumerate(draft.options):
+        # ID 只依赖稳定的业务内容与位置 同一合法结果在不同运行中可复现
         source = json.dumps(
             {
                 "index": index,

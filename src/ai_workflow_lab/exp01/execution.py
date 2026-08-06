@@ -17,17 +17,23 @@ from ai_workflow_lab.security import sanitize
 
 
 class ExperimentVariant(StrEnum):
+    """实验一可比较的三条结构化输出实现路径。"""
+
     PROMPT_PARSE = "prompt-parse"
     SDK_NATIVE = "sdk-native"
     LANGCHAIN_NATIVE = "langchain-native"
 
 
 class ExperimentMode(StrEnum):
+    """控制模型调用使用确定性 Mock 还是真实 Provider。"""
+
     MOCK = "mock"
     LIVE = "live"
 
 
 class ExperimentMetrics(BaseModel):
+    """将传输可靠性与响应 Schema 合法性分离的指标集合。"""
+
     model_config = ConfigDict(extra="forbid")
 
     model_calls: int = 0
@@ -38,6 +44,8 @@ class ExperimentMetrics(BaseModel):
 
 
 class ExperimentOutcome(BaseModel):
+    """单个 variant 的最终状态、结果、指标与脱敏错误。"""
+
     model_config = ConfigDict(extra="forbid")
 
     status: str
@@ -55,6 +63,7 @@ def extract_json_object(text: str) -> object:
         if character != "{":
             continue
         try:
+            # 从每个可能的对象起点尝试解析 兼容前置解释或 Markdown fence
             value, _end = decoder.raw_decode(text[index:])
         except json.JSONDecodeError:
             continue
@@ -64,7 +73,9 @@ def extract_json_object(text: str) -> object:
 
 
 def _validate_response(response: BackendResponse, *, parse_text: bool) -> TopicOptionsDraft:
+    """将各适配器响应规范化，并使用公共 Pydantic Schema 校验。"""
     if response.parser_error is not None:
+        # LangChain 已收到 Provider 响应 这里属于解析或校验失败而不是网络失败
         raise ValueError(f"LangChain 结构化解析失败：{response.parser_error}")
     payload: Any = response.payload
     if isinstance(payload, TopicOptionsDraft):
@@ -72,16 +83,19 @@ def _validate_response(response: BackendResponse, *, parse_text: bool) -> TopicO
     if isinstance(payload, BaseModel):
         payload = payload.model_dump(mode="json")
     if isinstance(payload, str):
+        # 只有 prompt-parse 需要从自然语言文本中寻找 JSON 对象。
         payload = extract_json_object(payload) if parse_text else json.loads(payload)
     return TopicOptionsDraft.model_validate(payload)
 
 
 def _metrics(calls: int, transports: int, schema_valid: int) -> ExperimentMetrics:
+    """根据原始计数计算单次或多次运行的两个可靠性比率。"""
     return ExperimentMetrics(
         model_calls=calls,
         transport_successes=transports,
         schema_valid_responses=schema_valid,
         transport_success_rate=transports / calls if calls else 0.0,
+        # 无成功传输时没有 Schema 分母 使用 None 而不是误导性的 0%
         schema_validity_rate_among_successes=(schema_valid / transports if transports else None),
     )
 
@@ -102,7 +116,7 @@ def execute_variant(
     resolved_method: StructuredOutputMethod | None,
     schema_retries: int = 1,
 ) -> ExperimentOutcome:
-    """执行初次生成及最多一次 Schema 修复请求。"""
+    """执行单个 variant，并以有上限的方式处理 Schema 修复请求。"""
     calls = 0
     transports = 0
     errors: list[dict[str, object]] = []
@@ -115,6 +129,7 @@ def execute_variant(
             error = sanitize(exc)
             assert isinstance(error, dict)
             errors.append({"category": "transport", **cast(dict[str, object], error)})
+            # 传输失败不能通过 Schema 重试修复 立即结束且不进入 Schema 分母
             return ExperimentOutcome(
                 status="failed",
                 variant=variant,
@@ -134,6 +149,7 @@ def execute_variant(
             assert isinstance(error, dict)
             errors.append({"category": "schema", **cast(dict[str, object], error)})
             if schema_attempt < schema_retries:
+                # 只允许一次修复请求 防止模型格式错误形成无限循环和不可控成本
                 current_prompt = (
                     f"{prompt}\n\n上一次响应未通过 Schema 校验：{exc}\n"
                     "请修正全部错误，只返回完整 JSON。"
@@ -163,6 +179,8 @@ def unsupported_outcome(
     variant: ExperimentVariant,
     reason: str,
 ) -> ExperimentOutcome:
+    """构造无调用成本的能力不可用实验结果。"""
+    # 能力不支持是可诊断的实验结果 不应伪装成模型调用失败
     return ExperimentOutcome(
         status="unsupported",
         variant=variant,

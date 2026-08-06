@@ -39,9 +39,12 @@ def resolve_method_for_run(
     *,
     project_root: Path | None = None,
 ) -> StructuredOutputMethod | None:
+    """为当前 variant 选择并冻结机制，或为普通文本路径返回空值。"""
     if variant is ExperimentVariant.PROMPT_PARSE:
+        # 该路径只依赖普通 Chat 不需要也不应消费 native 能力结论
         return None
     if mode is ExperimentMode.MOCK:
+        # Mock 默认选最强机制 使三条路径能在离线测试中共享同一对照条件
         requested = settings.ai_structured_output_method.strip().casefold()
         if requested == "auto":
             return StructuredOutputMethod.JSON_SCHEMA
@@ -60,6 +63,7 @@ def default_backend_factory(
     variant: ExperimentVariant,
     method: StructuredOutputMethod | None,
 ) -> StructuredBackend:
+    """根据运行模式、variant 和已冻结机制构建对应调用适配器。"""
     if mode is ExperimentMode.MOCK:
         return mock_backend(as_json_text=variant is ExperimentVariant.PROMPT_PARSE)
     if variant is ExperimentVariant.PROMPT_PARSE:
@@ -75,6 +79,7 @@ def _record_outcome(
     contract: ContractBundle,
     outcome: ExperimentOutcome,
 ) -> None:
+    """将输入契约、结果和指标写入事件、JSON 产物和运行摘要。"""
     contract_metadata = {
         "case_id": contract.case.case_id,
         "case_version": contract.case.case_version,
@@ -91,6 +96,7 @@ def _record_outcome(
         },
     )
     recorder.record_event("exp01.outcome", outcome)
+    # JSON 摘要便于 CLI 快速读取 完整 Prompt 仍只通过 event/artifact 追踪
     recorder.write_json(
         "input.json",
         {**contract_metadata, "brief": contract.case.brief},
@@ -120,6 +126,7 @@ def run_exp01(
     project_root: Path | None = None,
     backend_factory: BackendFactory = default_backend_factory,
 ) -> ExperimentOutcome:
+    """编排实验一的契约加载、能力门禁、调用执行与产物保存。"""
     contract = load_contract(case_id, project_root=project_root)
     try:
         method = resolve_method_for_run(
@@ -131,6 +138,7 @@ def run_exp01(
     except StructuredOutputResolutionError as exc:
         if variant is ExperimentVariant.PROMPT_PARSE:
             raise
+        # native 路径没有共同 supported 机制时 不构造客户端也不产生费用
         outcome = unsupported_outcome(variant, str(exc))
         _record_outcome(recorder, contract, outcome)
         return outcome

@@ -14,17 +14,22 @@ from ai_workflow_lab.exp01.domain import TopicOptionsDraft
 
 @dataclass(frozen=True, slots=True)
 class BackendResponse:
-    """一次已成功完成传输的模型响应。"""
+    """一次已成功完成传输的模型响应及可选的框架解析错误。"""
 
     payload: object
     parser_error: object | None = None
 
 
 class StructuredBackend(Protocol):
-    def invoke(self, prompt: str) -> BackendResponse: ...
+    """统一三种实验路径的单次模型调用边界。"""
+
+    def invoke(self, prompt: str) -> BackendResponse:
+        """发送完整 Prompt，并在收到 Provider 响应后返回标准包装对象。"""
+        ...
 
 
 def _openai_client(settings: LabSettings) -> tuple[Any, str]:
+    """按实验统一参数创建底层 OpenAI-compatible SDK 客户端。"""
     from openai import OpenAI
 
     settings.require_live_credentials()
@@ -34,17 +39,22 @@ def _openai_client(settings: LabSettings) -> tuple[Any, str]:
         api_key=settings.ai_api_key.get_secret_value(),
         base_url=settings.ai_base_url,
         timeout=settings.ai_timeout_seconds,
+        # 实验协议要求传输重试最多两次 即使全局配置更大也要截断
         max_retries=min(settings.ai_max_retries, 2),
     )
     return client, settings.ai_model
 
 
 class OpenAIPromptParseBackend:
+    """通过普通 SDK 文本响应实现 Prompt 约束的结构化输出路径。"""
+
     def __init__(self, settings: LabSettings) -> None:
+        """保存共享 SDK 客户端、模型名与输出 token 上限。"""
         self._client, self._model = _openai_client(settings)
         self._max_tokens = settings.ai_max_output_tokens
 
     def invoke(self, prompt: str) -> BackendResponse:
+        """请求普通 Chat Completions，并将原始文本交给应用层提取 JSON。"""
         response = self._client.chat.completions.create(
             model=self._model,
             messages=[{"role": "user", "content": prompt}],
@@ -55,19 +65,24 @@ class OpenAIPromptParseBackend:
 
 
 class OpenAINativeBackend:
+    """通过 SDK 的 JSON Schema、JSON Mode 或强制 Tool Calling 请求结构化响应。"""
+
     def __init__(self, settings: LabSettings, method: StructuredOutputMethod) -> None:
+        """固定本次运行已解析的 native 机制和公共响应 Schema。"""
         self._client, self._model = _openai_client(settings)
         self._method = method
         self._max_tokens = settings.ai_max_output_tokens
         self._schema = TopicOptionsDraft.model_json_schema()
 
     def invoke(self, prompt: str) -> BackendResponse:
+        """按固定机制调用 SDK，并统一返回文本或 Tool 参数中的业务对象。"""
         common: dict[str, object] = {
             "model": self._model,
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": self._max_tokens,
         }
         if self._method is StructuredOutputMethod.JSON_SCHEMA:
+            # 服务端按完整 JSON Schema 约束输出 是最强的 native 路径
             common["response_format"] = {
                 "type": "json_schema",
                 "json_schema": {
@@ -77,8 +92,10 @@ class OpenAINativeBackend:
                 },
             }
         elif self._method is StructuredOutputMethod.JSON_MODE:
+            # JSON Mode 只保证 JSON 形态 字段约束仍由本地 Pydantic 负责
             common["response_format"] = {"type": "json_object"}
         else:
+            # 强制指定函数 避免模型把 Tool Calling 当成可选行为
             common["tools"] = [
                 {
                     "type": "function",
@@ -97,6 +114,7 @@ class OpenAINativeBackend:
         response = self._client.chat.completions.create(**common)
         message = response.choices[0].message if response.choices else None
         if self._method is StructuredOutputMethod.TOOL_CALLING:
+            # Tool Calling 的业务对象位于函数参数 而不是普通文本 content
             calls = message.tool_calls if message is not None else None
             arguments = calls[0].function.arguments if calls else ""
             return BackendResponse(payload=arguments)
@@ -104,7 +122,10 @@ class OpenAINativeBackend:
 
 
 class LangChainNativeBackend:
+    """通过 LangChain 显式结构化 API 执行与 SDK native 等价的调用。"""
+
     def __init__(self, settings: LabSettings, method: StructuredOutputMethod) -> None:
+        """构建已强制指定方法的 LangChain structured runnable。"""
         from langchain_openai import ChatOpenAI
 
         settings.require_live_credentials()
@@ -115,6 +136,7 @@ class LangChainNativeBackend:
             base_url=settings.ai_base_url,
             model=settings.ai_model,
             timeout=settings.ai_timeout_seconds,
+            # 与 SDK variant 使用完全相同的传输重试上限。
             max_retries=min(settings.ai_max_retries, 2),
             max_completion_tokens=settings.ai_max_output_tokens,
         )
@@ -122,16 +144,19 @@ class LangChainNativeBackend:
         model_with_structure: Any = model
         self._structured: Any = model_with_structure.with_structured_output(
             TopicOptionsDraft,
+            # 必须传具体 method 不允许 LangChain 根据 Provider 自行猜测
             method=langchain_method,
             include_raw=True,
         )
 
     def invoke(self, prompt: str) -> BackendResponse:
+        """执行 runnable，并保留 LangChain 原始响应以区分传输与解析失败。"""
         result: object = self._structured.invoke(prompt)
         if not isinstance(result, dict):
             return BackendResponse(payload=result)
         typed_result = cast(dict[str, object], result)
         return BackendResponse(
+            # include_raw=True 让解析失败仍能区分“传输成功”与“Schema 失败”。
             payload=typed_result.get("parsed") or typed_result.get("raw"),
             parser_error=typed_result.get("parsing_error"),
         )
@@ -140,7 +165,7 @@ class LangChainNativeBackend:
 def to_langchain_method(
     method: StructuredOutputMethod,
 ) -> Literal["json_schema", "function_calling", "json_mode"]:
-    """显式映射项目机制名，禁止把 `auto` 交给 LangChain。"""
+    """将项目机制名映射为 LangChain API 接受的具体 method 值。"""
     if method is StructuredOutputMethod.JSON_SCHEMA:
         return "json_schema"
     if method is StructuredOutputMethod.TOOL_CALLING:
@@ -156,7 +181,9 @@ class SequenceMockBackend:
     calls: int = 0
 
     def invoke(self, prompt: str) -> BackendResponse:
+        """消费下一项 mock 响应，用于模拟成功、格式错误和传输失败。"""
         del prompt
+        # 最后一项会重复返回 便于用一个坏响应测试重试上限
         index = min(self.calls, len(self.responses) - 1)
         self.calls += 1
         value = self.responses[index]
@@ -168,6 +195,7 @@ class SequenceMockBackend:
 
 
 def default_mock_payload() -> dict[str, object]:
+    """返回满足三个选题契约的固定离线响应。"""
     return {
         "options": [
             {
@@ -196,10 +224,12 @@ def default_mock_payload() -> dict[str, object]:
 
 
 def mock_backend(*, as_json_text: bool) -> SequenceMockBackend:
+    """创建适配指定 variant 载荷形态的默认离线 Backend。"""
     payload = default_mock_payload()
     response = json.dumps(payload, ensure_ascii=False) if as_json_text else payload
     return SequenceMockBackend([response])
 
 
 def as_mapping(value: BaseModel) -> dict[str, object]:
+    """将 Pydantic 对象转换为 JSON 兼容字典。"""
     return cast(dict[str, object], value.model_dump(mode="json"))

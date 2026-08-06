@@ -10,6 +10,8 @@ from ai_workflow_lab.exp01.domain import IdeaBrief, TopicOptionsDraft
 
 
 class ExperimentCase(BaseModel):
+    """版本化实验案例及其内容选题输入。"""
+
     model_config = ConfigDict(extra="forbid")
 
     case_id: str
@@ -18,6 +20,8 @@ class ExperimentCase(BaseModel):
 
 
 class ContractBundle(BaseModel):
+    """一次实验需要的已渲染 Prompt、案例和可复现 hash 集合。"""
+
     model_config = ConfigDict(extra="forbid")
 
     case: ExperimentCase
@@ -28,6 +32,8 @@ class ContractBundle(BaseModel):
 
 
 def _canonical_hash(value: object) -> str:
+    """为 JSON 兼容值生成不受键顺序影响的 SHA-256 hash。"""
+    # 规范化序列化可避免字典键顺序或空白差异造成误判。
     encoded = json.dumps(
         value,
         ensure_ascii=False,
@@ -42,6 +48,7 @@ def load_contract(
     *,
     project_root: Path | None = None,
 ) -> ContractBundle:
+    """读取案例和 Prompt 模板，并生成本次对照使用的固定契约。"""
     root = (project_root or Path.cwd()).resolve()
     experiment_root = root / "experiments" / "01-structured-output"
     case_path = experiment_root / "cases" / f"{case_id}.json"
@@ -58,6 +65,7 @@ def load_contract(
         brief_json=case.brief.model_dump_json(indent=2),
         schema_json=json.dumps(schema, ensure_ascii=False, indent=2, sort_keys=True),
     )
+    # 三种 variant 都记录同一组 hash 用于事后确认对照条件没有漂移
     return ContractBundle(
         case=case,
         prompt=prompt,
