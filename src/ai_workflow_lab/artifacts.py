@@ -151,6 +151,25 @@ def externalize_large_text(
     return value
 
 
+def compact_artifact_backed_text(value: JSONValue) -> JSONValue:
+    """从 Trace 载荷中移除已有 artifact 引用保护的完整正文。"""
+    if isinstance(value, list):
+        return [compact_artifact_backed_text(item) for item in value]
+    if not isinstance(value, dict):
+        return value
+
+    artifact = value.get("artifact")
+    compacted = {
+        key: compact_artifact_backed_text(item)
+        for key, item in value.items()
+        if key not in {"content", "raw_content"}
+    }
+    if isinstance(artifact, dict) and isinstance(artifact.get("artifact_ref"), str):
+        # artifact 自身已包含 reference、hash、长度和短预览。
+        return compacted
+    return {key: compact_artifact_backed_text(item) for key, item in value.items()}
+
+
 def reconstruct_externalized(value: JSONValue, *, store: ArtifactStore) -> JSONValue:
     """递归解析 `$artifact` 占位符并恢复正文。"""
     if isinstance(value, list):

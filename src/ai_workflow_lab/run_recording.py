@@ -9,7 +9,11 @@ from pathlib import Path
 from typing import Literal
 from uuid import uuid4
 
-from ai_workflow_lab.artifacts import ArtifactStore, externalize_large_text
+from ai_workflow_lab.artifacts import (
+    ArtifactStore,
+    compact_artifact_backed_text,
+    externalize_large_text,
+)
 from ai_workflow_lab.config import LabSettings
 from ai_workflow_lab.security import JSONValue, sanitize
 
@@ -96,8 +100,9 @@ class RunRecorder:
     def record_event(self, event_type: str, payload: object) -> dict[str, JSONValue]:
         """脱敏、外置大文本后追加一个事件。"""
         sanitized = sanitize(payload, secrets=self.settings.secret_values)
+        compacted = compact_artifact_backed_text(sanitized)
         externalized = externalize_large_text(
-            sanitized,
+            compacted,
             store=self.artifacts,
             threshold=self.settings.lab_artifact_inline_threshold,
         )
@@ -119,6 +124,19 @@ class RunRecorder:
             raise ValueError("运行产物路径超出 run 目录")
         sanitized = sanitize(value, secrets=self.settings.secret_values)
         _write_json(target, sanitized)
+        return target
+
+    def write_text(self, relative_path: str, value: str) -> Path:
+        """在 run 目录内原子写入经过脱敏的 UTF-8 文本。"""
+        target = (self.run_dir / relative_path).resolve()
+        if not target.is_relative_to(self.run_dir):
+            raise ValueError("运行产物路径超出 run 目录")
+        sanitized = sanitize(value, secrets=self.settings.secret_values)
+        assert isinstance(sanitized, str)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temporary = target.with_suffix(target.suffix + ".tmp")
+        temporary.write_text(sanitized, encoding="utf-8")
+        temporary.replace(target)
         return target
 
     def update_summary(self, values: dict[str, object]) -> None:

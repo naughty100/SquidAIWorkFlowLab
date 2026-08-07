@@ -122,6 +122,35 @@ lab runs show RUN_ID
 
 摘要分别展示 `transport_success_rate` 与 `schema_validity_rate_among_successes`；网络或限流失败不会被算作 Schema 失败。每次运行还会保存固定案例版本、输入/Prompt/Schema hash、调用次数、合法结果或校验错误。
 
+## 实验二：受控 Tool Calling
+
+实验二用同一研究案例和公共 finalizer，对照固定 Python 流程与最多三轮、由应用控制终止条件的 Tool Calling 循环：
+
+```powershell
+# 默认 fixture；只读版本化 JSON，不访问网络
+lab run exp02 --mode fixture --variant fixed
+lab run exp02 --mode fixture --variant tool-call
+
+# live 会调用模型和 Tavily，并可能产生费用
+lab run exp02 --mode live --variant fixed
+lab run exp02 --mode live --variant tool-call
+```
+
+live 模式除 `AI_*` 配置外还需要：
+
+```dotenv
+TAVILY_API_KEY=your-tavily-key
+TAVILY_TIMEOUT_SECONDS=30
+```
+
+运行预算最多允许 5 次模型调用、6 次工具调用、2 次搜索、4 次网页读取和 120 秒，其中最后一次模型调用只保留给公共 Proposal finalizer。网页清洗正文保存在 `artifacts/web/{content_hash}.json.gz`，事件日志只保留引用、hash、长度和短预览。
+
+按类型查看脱敏 Tool 轨迹：
+
+```powershell
+lab runs events RUN_ID --type exp02.tool
+```
+
 ## 安全边界
 
 - `.env`、输出、runtime 和 cache 默认忽略；

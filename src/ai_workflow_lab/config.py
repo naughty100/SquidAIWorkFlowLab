@@ -29,6 +29,9 @@ class LabSettings(BaseSettings):
     ai_max_output_tokens: int = Field(default=1200, ge=64, le=32000)
     ai_structured_output_method: str = "auto"
 
+    tavily_api_key: SecretStr | None = None
+    tavily_timeout_seconds: float = Field(default=30.0, ge=1.0, le=60.0)
+
     lab_output_dir: Path = Path("data/outputs")
     lab_runtime_dir: Path = Path("data/runtime")
     lab_cache_dir: Path = Path("data/cache")
@@ -83,10 +86,11 @@ class LabSettings(BaseSettings):
     @property
     def secret_values(self) -> tuple[str, ...]:
         """返回需要从持久化内容中二次替换的实际秘密值。"""
-        if self.ai_api_key is None:
-            return ()
-        value = self.ai_api_key.get_secret_value()
-        return (value,) if value else ()
+        values = (
+            self.ai_api_key.get_secret_value() if self.ai_api_key is not None else "",
+            self.tavily_api_key.get_secret_value() if self.tavily_api_key is not None else "",
+        )
+        return tuple(value for value in values if value)
 
     def require_live_credentials(self) -> None:
         """确认 live probe 所需配置齐全。"""
@@ -98,3 +102,8 @@ class LabSettings(BaseSettings):
         if missing:
             joined = ", ".join(missing)
             raise ConfigurationError(f"live 模式缺少配置：{joined}")
+
+    def require_tavily_credentials(self) -> None:
+        """确认 live 网页工具所需配置齐全。"""
+        if self.tavily_api_key is None or not self.tavily_api_key.get_secret_value():
+            raise ConfigurationError("live 工具模式缺少配置：TAVILY_API_KEY")

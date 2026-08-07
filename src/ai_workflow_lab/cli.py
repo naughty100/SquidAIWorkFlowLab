@@ -9,6 +9,8 @@ from ai_workflow_lab.config import LabSettings
 from ai_workflow_lab.doctor import run_doctor
 from ai_workflow_lab.exp01.execution import ExperimentMode, ExperimentVariant
 from ai_workflow_lab.exp01.service import run_exp01
+from ai_workflow_lab.exp02.execution import Experiment02Mode, Experiment02Variant
+from ai_workflow_lab.exp02.service import run_exp02
 from ai_workflow_lab.run_recording import RunRecorder
 
 app = typer.Typer(
@@ -124,6 +126,53 @@ def run_structured_output_experiment(
         raise
 
 
+@run_app.command("exp02")
+def run_controlled_tool_experiment(
+    case_id: Annotated[str, typer.Option("--case", help="版本化研究案例 ID。")] = "career-ai-v1",
+    mode: Annotated[
+        Experiment02Mode, typer.Option("--mode", help="fixture 或 live。")
+    ] = Experiment02Mode.FIXTURE,
+    variant: Annotated[
+        Experiment02Variant,
+        typer.Option("--variant", help="fixed 或 tool-call。"),
+    ] = Experiment02Variant.FIXED,
+    env_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--env-file",
+            "-e",
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            readable=True,
+            resolve_path=True,
+            help="指定 dotenv 配置档案；未指定时读取 .env。",
+        ),
+    ] = None,
+) -> None:
+    """运行实验二的固定研究或受控 Tool Calling variant。"""
+    settings = LabSettings.from_env_file(env_file)
+    command = f"run exp02 --case {case_id} --mode {mode.value} --variant {variant.value}"
+    if env_file is not None:
+        command += f" --env-file {env_file}"
+    recorder = RunRecorder(settings, command=command)
+    try:
+        outcome = run_exp02(
+            settings,
+            recorder,
+            case_id=case_id,
+            mode=mode,
+            variant=variant,
+        )
+        recorder.finish("succeeded")
+        typer.echo(outcome.model_dump_json(indent=2))
+        typer.echo(f"run_id: {recorder.run_id}")
+    except Exception as exc:
+        recorder.record_event("exp02.error", exc)
+        recorder.finish("failed", details=exc)
+        raise
+
+
 @runs_app.command("show")
 def show_run(
     run_id: str,
@@ -152,6 +201,45 @@ def show_run(
         # 防止 RUN_ID 被构造成目录穿越路径 并避免读取非实验文件
         raise typer.BadParameter(f"运行记录不存在：{run_id}", param_hint="RUN_ID")
     typer.echo(summary_path.read_text(encoding="utf-8"))
+
+
+@runs_app.command("events")
+def show_run_events(
+    run_id: str,
+    event_type: Annotated[
+        str | None,
+        typer.Option("--type", help="按事件类型或类型前缀过滤。"),
+    ] = None,
+    env_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--env-file",
+            "-e",
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            readable=True,
+            resolve_path=True,
+            help="指定 dotenv 配置档案；未指定时读取 .env。",
+        ),
+    ] = None,
+) -> None:
+    """显示一次运行的脱敏事件，可用于查看 Tool 轨迹。"""
+    import json
+
+    settings = LabSettings.from_env_file(env_file)
+    root = settings.lab_output_dir
+    if not root.is_absolute():
+        root = Path.cwd() / root
+    events_path = (root / "commands" / run_id / "events.jsonl").resolve()
+    commands_root = (root / "commands").resolve()
+    if not events_path.is_relative_to(commands_root) or not events_path.is_file():
+        raise typer.BadParameter(f"运行记录不存在：{run_id}", param_hint="RUN_ID")
+    for line in events_path.read_text(encoding="utf-8").splitlines():
+        event = json.loads(line)
+        current_type = str(event.get("type", ""))
+        if event_type is None or current_type.startswith(event_type):
+            typer.echo(json.dumps(event, ensure_ascii=False, sort_keys=True))
 
 
 if __name__ == "__main__":
