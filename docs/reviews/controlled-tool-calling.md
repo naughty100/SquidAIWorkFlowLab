@@ -2,9 +2,9 @@
 
 ## 当前结论
 
-实验二的离线工程路径已经完成：`fixed` 与 `tool-call` 都使用版本化 `career-ai-v1` fixture、相同只读工具 Schema、统一 `ExecutionBudget`、同一 `ResearchPack` 和同一 Proposal finalizer。两条路径能够生成来源相同、可追溯的提案产物。
+实验二已经完成。`fixed` 与 `tool-call` 都使用版本化 `career-ai-v1` fixture、相同只读工具 Schema、统一 `ExecutionBudget`、同一 `ResearchPack` 和同一 Proposal finalizer。两条路径能够生成可追溯的提案产物；同时已通过能力门禁并完成真实 Provider 对照。
 
-真实 Provider 对照尚未完成。当前 `.env` 没有 `TAVILY_API_KEY`；最近一次 `deepseek-v4-flash` 能力报告中 Tool Calling 为 `unknown`，JSON Mode 与 JSON Schema 为 `unsupported`。因此现在既无法执行 Tavily live 搜索，也不能安全运行要求显式 Tool Calling 和结构化 finalizer 的完整 live 对照。
+2026-08-10 的 `deepseek-v4-flash` live 能力报告（run ID `e05f02c605134541baa30ab734a4c083`）确认 chat、streaming、Tool Calling 与 JSON Mode 均为 `supported`。JSON Schema 被 Provider 拒绝，因此 finalizer 采用已支持的 JSON Mode；这满足显式结构化输出的要求。
 
 ## Fixture 对照
 
@@ -34,13 +34,15 @@
 - 离线测试：45 passed，1 个 exp01 live 测试和 1 个 exp02 live 测试默认不执行。
 - 两个 fixture CLI variant：通过，并生成 `research-pack.json`、`proposal.json`、`proposal.md`、网页 artifact 与脱敏事件。
 
-## Live 门禁
+## Live 对照与结论
 
-完成本 change 还需要：
+2026-08-10 对同一 `career-ai-v1` 案例完成两个 live variant：
 
-1. 配置 `TAVILY_API_KEY`。
-2. 使用明确支持 Tool Calling，且至少支持一种显式结构化输出机制的模型配置档案。
-3. 重新执行 `lab doctor --live`，确认能力状态为 `supported`。
-4. 对相同 `career-ai-v1` 案例运行 `fixed` 与 `tool-call` live variant，并在本复盘补充运行 ID、预算、工具错误和结果差异。
+| Variant | Run ID | 状态 | 研究模型调用 | Finalizer 调用 | Tool 调用 | 来源 | Tool 错误 |
+|---|---|---|---:|---:|---:|---:|---:|
+| `fixed` | `466a91516d50493099e9aea7384f6ac0` | succeeded | 0 | 1 | 4（1 search + 3 read） | 3 | 0 |
+| `tool-call` | `3fdc5cba959c4c29ac9340015371780a` | succeeded | 3 | 1 | 6（2 search + 4 read） | 3 | 2 |
 
-在上述 live 门禁完成前，不进入 `agent-comparison`。
+`fixed` 在已知流程下更省模型和工具调用，并在约 22.75 秒内完成；`tool-call` 因模型自主规划使用了更多查询和读取，在约 45.75 秒内完成。后者的两个工具错误分别是受预算控制拒绝的第三次搜索和一个 Tavily 空正文；二者均已按协议写入对应 ToolMessage，且不妨碍 finalizer 使用三条有效来源产出提案。两次运行都保存了 `research-pack.json`、`proposal.json`、`proposal.md`、网页 artifact 和脱敏事件。
+
+首次 `tool-call` 运行在完成后曾因 Windows GBK 控制台无法输出网页文本的 `∙` 字符而返回非零退出码；运行记录本身为 succeeded。CLI 现已在输出边界转义非 ASCII JSON，避免已完成的运行被控制台编码错误误报为失败。

@@ -31,6 +31,7 @@ def test_secret_values_only_contains_non_empty_keys(tmp_path: Path) -> None:
     settings = LabSettings(
         ai_api_key=SecretStr("secret-value"),
         ai_model="model",
+        tavily_api_key=None,
         lab_output_dir=tmp_path / "outputs",
     )
 

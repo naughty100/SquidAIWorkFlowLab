@@ -25,5 +25,5 @@
 - [x] 4.1 覆盖 search→read 多轮、单轮多调用顺序、单项失败继续、轮次上限和提前结束
 - [x] 4.2 覆盖模型/工具分类预算、deadline、finalizer 配额和批次剩余调用的 budget_exceeded 消息
 - [x] 4.3 覆盖网页正文不进入 events.jsonl、artifact 可重建、excerpt 来源和秘密过滤
-- [ ] 4.4 通过全局门禁并用相同案例运行 fixed/tool-call live 对照
+- [x] 4.4 通过全局门禁并用相同案例运行 fixed/tool-call live 对照
 - [x] 4.5 完成 `docs/reviews/controlled-tool-calling.md`，确认工具协议和受控循环结论后再进入下一 change

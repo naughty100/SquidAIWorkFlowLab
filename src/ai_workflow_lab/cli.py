@@ -25,6 +25,20 @@ app.add_typer(run_app, name="run")
 app.add_typer(runs_app, name="runs")
 
 
+def console_safe_text(text: str) -> str:
+    """Return text that every Windows console encoding can print.
+
+    Run artifacts keep their original UTF-8 content. CLI JSON is escaped only
+    at the output boundary so an inherited GBK console cannot turn a completed
+    run into a command failure.
+    """
+    return text.encode("ascii", errors="backslashreplace").decode("ascii")
+
+
+def _echo_json(text: str) -> None:
+    typer.echo(console_safe_text(text))
+
+
 @app.callback()
 def main() -> None:
     """AI Workflow Lab 命令组。"""
@@ -61,7 +75,7 @@ def doctor(
         recorder.record_event("doctor.report", report)
         recorder.write_json("capabilities.json", report.capabilities)
         recorder.finish("succeeded" if report.ok else "failed", details={"ok": report.ok})
-        typer.echo(report.model_dump_json(indent=2))
+        _echo_json(report.model_dump_json(indent=2))
         if not report.ok:
             raise typer.Exit(code=1)
     except typer.Exit:
@@ -114,7 +128,7 @@ def run_structured_output_experiment(
             variant=variant,
         )
         recorder.finish("succeeded" if outcome.status != "failed" else "failed")
-        typer.echo(outcome.model_dump_json(indent=2))
+        _echo_json(outcome.model_dump_json(indent=2))
         typer.echo(f"run_id: {recorder.run_id}")
         if outcome.status == "failed":
             raise typer.Exit(code=1)
@@ -165,7 +179,7 @@ def run_controlled_tool_experiment(
             variant=variant,
         )
         recorder.finish("succeeded")
-        typer.echo(outcome.model_dump_json(indent=2))
+        _echo_json(outcome.model_dump_json(indent=2))
         typer.echo(f"run_id: {recorder.run_id}")
     except Exception as exc:
         recorder.record_event("exp02.error", exc)
@@ -200,7 +214,7 @@ def show_run(
     if not summary_path.is_relative_to(commands_root) or not summary_path.is_file():
         # 防止 RUN_ID 被构造成目录穿越路径 并避免读取非实验文件
         raise typer.BadParameter(f"运行记录不存在：{run_id}", param_hint="RUN_ID")
-    typer.echo(summary_path.read_text(encoding="utf-8"))
+    typer.echo(console_safe_text(summary_path.read_text(encoding="utf-8")))
 
 
 @runs_app.command("events")
@@ -239,7 +253,7 @@ def show_run_events(
         event = json.loads(line)
         current_type = str(event.get("type", ""))
         if event_type is None or current_type.startswith(event_type):
-            typer.echo(json.dumps(event, ensure_ascii=False, sort_keys=True))
+            typer.echo(json.dumps(event, ensure_ascii=True, sort_keys=True))
 
 
 if __name__ == "__main__":
