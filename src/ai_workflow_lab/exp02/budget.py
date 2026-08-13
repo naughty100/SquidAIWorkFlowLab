@@ -29,6 +29,9 @@ class ExecutionBudget:
     tool_calls: int = 0
     search_calls: int = 0
     read_calls: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    total_tokens: int = 0
     _deadline: float = field(init=False)
 
     def __post_init__(self) -> None:
@@ -70,6 +73,14 @@ class ExecutionBudget:
         else:
             self.read_calls += 1
 
+    def record_tokens(self, *, input_tokens: int = 0, output_tokens: int = 0) -> None:
+        """Record provider usage without treating unknown usage as zero."""
+        if input_tokens < 0 or output_tokens < 0:
+            raise ValueError("token usage cannot be negative")
+        self.input_tokens += input_tokens
+        self.output_tokens += output_tokens
+        self.total_tokens += input_tokens + output_tokens
+
     def snapshot(self) -> dict[str, int | float]:
         return {
             "model_calls": self.model_calls,
@@ -78,5 +89,8 @@ class ExecutionBudget:
             "tool_calls": self.tool_calls,
             "search_calls": self.search_calls,
             "read_calls": self.read_calls,
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
+            "total_tokens": self.total_tokens,
             "remaining_seconds": max(0.0, self._deadline - self.clock()),
         }

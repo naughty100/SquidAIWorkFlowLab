@@ -22,9 +22,13 @@
 
 `create_agent` 绑定既有搜索和读取工具，最终响应显式使用 `ToolStrategy[ResearchPack]`。Agent 完成后，其 ResearchPack 必须经过与 fixed variant 完全相同的 `finalize_proposal`。固定流程和 Agent 的运行图因此都可表达为 `research → finalize → persist`。
 
+模型回传的 ResearchPack 不能单凭 Schema 合法就被信任。应用将其中的 source ID 与本次 `TrackedAgentTools` 实际 exchange 绑定，并用工具生成的规范化 SourceEvidence 替换模型字段；不存在于真实工具结果中的来源会使 Agent 以 `invalid_response` 结束。
+
 ### 双重预算但单一计量
 
 LangChain middleware 在 Agent 内部阻止超限，自有 `ExecutionBudget` 包装实际模型和工具调用并作为报告的唯一计量来源。Agent 研究阶段最多 4 次模型调用，finalizer 使用预留的第 5 次；最多 6 次工具、2 次搜索、4 次读取和 120 秒。
+
+ToolStrategy 的结构化返回在框架内部也表现为 Tool Call，因此 middleware 只对 `search_web=2` 和 `read_webpage=4` 分别限流，两者合计仍为六次真实研究工具；不使用会误计结构化返回的全局 Tool Call 限制。
 
 ### 重复调用控制
 
@@ -33,6 +37,8 @@ LangChain middleware 在 Agent 内部阻止超限，自有 `ExecutionBudget` 包
 ### 比较方法
 
 `lab compare exp03` 对同一 case、fixture version、模型配置和 Prompt hash 执行配对运行。先各运行 3 次作为 smoke；若任一核心量化指标差异达到 20%，或人工 Rubric 平均差异达到 1 分，则扩展为至少 10 次固定案例后才记录方向性结论。
+
+统一验收由带 `live` marker 的集成测试执行。只有显式设置 `RUN_LIVE_TESTS=1` 才会产生 Provider/Tavily 调用；测试先执行三次配对，并在 `extension_triggered=true` 时自动追加一份十次配对报告。`LAB_LIVE_ENV_FILE` 可选择与 CLI 相同的 dotenv 配置档案，未设置时沿用 `.env`。
 
 ## Risks / Trade-offs
 

@@ -1,0 +1,9 @@
+{
+  "profile_id": "chars-800-120-k4",
+  "splitter": "deterministic-character",
+  "chunk_size": 800,
+  "overlap": 120,
+  "top_k": 4,
+  "score_type": "cosine_similarity",
+  "profile_version": "1"
+}

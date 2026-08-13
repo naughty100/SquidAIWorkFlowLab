@@ -37,6 +37,8 @@ Profile 以受版本控制的配置文件保存，包含 profile ID、provider�
 
 `no-rag` 不提供本地文档，`full-context` 在明确长度上限内提供全部样本文档，`vector` 只提供 Top K 片段。三者使用同一生成 Schema、Prompt 主体和 finalizer，差异仅为上下文来源。
 
+离线确定性答案适配器只根据查询与可见上下文选择证据，检索案例中的 `expected_document_ids` 只用于 Recall/MRR 评价，不得进入答案构造。三种 variant 共同记录生成控制 hash，Profile 评估摘要同时保存 embedding 与 baseline retrieval 配置 hash。
+
 ## Risks / Trade-offs
 
 - [模型首次下载慢或失败] → 作为带 `rag` extra 的显式集成步骤，离线单元测试使用固定 embedding；缓存目录不提交 Git。

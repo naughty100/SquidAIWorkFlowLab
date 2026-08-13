@@ -1,0 +1,12 @@
+{
+  "dataset_id": "ai-workflow-career-knowledge-v1",
+  "dataset_version": "1",
+  "documents": [
+    {"document_id": "doc-career-transition", "version": "1", "title": "前端工程师的 AI 应用转型路径", "path": "career-transition.md"},
+    {"document_id": "doc-structured-output", "version": "1", "title": "结构化输出的稳定性边界", "path": "structured-output.md"},
+    {"document_id": "doc-tool-calling", "version": "1", "title": "受控 Tool Calling 的工程约束", "path": "tool-calling.md"},
+    {"document_id": "doc-agent-boundaries", "version": "1", "title": "Agent 自主决策的适用边界", "path": "agent-boundaries.md"},
+    {"document_id": "doc-rag-evaluation", "version": "1", "title": "RAG 检索与证据评估", "path": "rag-evaluation.md"},
+    {"document_id": "doc-langgraph-recovery", "version": "1", "title": "LangGraph 暂停、检查点与恢复", "path": "langgraph-recovery.md"}
+  ]
+}

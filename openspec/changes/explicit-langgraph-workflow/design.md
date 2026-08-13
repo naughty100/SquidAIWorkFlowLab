@@ -35,6 +35,10 @@ State 使用 JSON 可序列化的 TypedDict 形态，包含输入、选题、选
 
 使用 SQLite checkpointer。初次 `lab run exp05` 创建独立 `run_id` 和 `thread_id`；每次 `graph resume` 创建新 run 并复用 thread。`graph state` 只读展示最新 checkpoint、下一节点、interrupt payload 和历史摘要。
 
+初始 mode 属于持久化工作流配置并写入 state；恢复命令必须使用相同 mode，错误配置在创建新 checkpoint 前被拒绝。最终持久化的 `workflow-state.json` 使用 `persist_artifacts` 将要返回的 `succeeded` 或 `needs_review` 状态，而不是上一节点的临时状态。
+
+统一 live 验收测试使用两个独立 `python -m ai_workflow_lab.cli` 子进程分别执行 start 与 resume，再以第三个子进程只读检查 state。测试只在 `RUN_LIVE_TESTS=1` 时启用，并通过 `LAB_LIVE_ENV_FILE` 把同一 dotenv 档案显式传给三个 CLI 进程；最终检查三个不同 run、同一 thread 以及 Proposal 文件。
+
 ### 失败恢复
 
 不暴露 `graph retry`。集成测试通过注入一次性失败节点、重新建立进程级 Graph/checkpointer 并按 LangGraph 官方调用方式继续同一 thread，记录哪些节点重跑及 pending writes 表现。复盘后若确有用户操作价值，再另建 change 设计命令语义。

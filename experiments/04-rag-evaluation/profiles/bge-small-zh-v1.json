@@ -1,0 +1,18 @@
+{
+  "profile_id": "bge-small-zh-v1",
+  "provider": "sentence-transformers",
+  "model_name": "BAAI/bge-small-zh-v1.5",
+  "revision": "7999e1d3359715c523056ef9478215996d62a620",
+  "device": "cpu",
+  "dtype": "float32",
+  "trust_remote_code": false,
+  "normalize": true,
+  "batch_size": 32,
+  "query_prefix": "为这个句子生成表示以用于检索相关文章：",
+  "document_prefix": "",
+  "distance_metric": "cosine",
+  "expected_dimensions": 512,
+  "max_sequence_length": 512,
+  "cache_dir": "embeddings/bge-small-zh-v1",
+  "profile_version": "1"
+}

@@ -69,6 +69,12 @@ def finalize_proposal(
         {"phase": "finalizer", "research_pack": pack, "prompt_hash": _prompt_hash(prompt)},
     )
     draft = backend.invoke(prompt, pack)
+    usage_value: object = getattr(backend, "last_usage", None)
+    usage = cast(tuple[object, ...], usage_value) if isinstance(usage_value, tuple) else ()
+    if len(usage) == 2:
+        input_tokens, output_tokens = usage
+        if isinstance(input_tokens, int) and isinstance(output_tokens, int):
+            budget.record_tokens(input_tokens=input_tokens, output_tokens=output_tokens)
     _validate_citations(draft, pack)
     bundle = ProposalBundle(
         **draft.model_dump(mode="python"),
@@ -124,6 +130,7 @@ class OpenAIProposalBackend:
         self._model = settings.ai_model
         self._method = method
         self._max_tokens = settings.ai_max_output_tokens
+        self.last_usage: tuple[int, int] | None = None
 
     def invoke(self, prompt: str, pack: ResearchPack) -> ProposalDraft:
         del pack
@@ -156,6 +163,12 @@ class OpenAIProposalBackend:
                 "function": {"name": "return_proposal"},
             }
         response = self._client.chat.completions.create(**request)
+        usage = response.usage
+        self.last_usage = (
+            (int(usage.prompt_tokens), int(usage.completion_tokens))
+            if usage is not None
+            else None
+        )
         message = response.choices[0].message
         if self._method is StructuredOutputMethod.TOOL_CALLING:
             calls = cast(list[Any], message.tool_calls or [])

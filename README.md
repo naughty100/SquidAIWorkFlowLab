@@ -2,7 +2,7 @@
 
 AI Workflow Lab 是一个本地运行的 Python 实验项目，用于系统学习、验证和复盘 LangChain、LangGraph 及常见 AI 应用模式。
 
-当前只实现了实验基座：可复现的 Python 环境、安全配置、Provider 能力探测、本地 Trace、内容寻址 artifact 和离线 Mock Model。Tool Calling、Agent、RAG 与 LangGraph 将按各自 OpenSpec change 分阶段加入。
+当前已实现全部五个实验：结构化输出、受控 Tool Calling、Agent 公平对照、最小 RAG，以及带 SQLite checkpoint 与人工中断的显式 LangGraph 工作流。所有实验共用可复现环境、安全配置、本地 Trace、内容寻址 artifact 和离线测试基座。
 
 ## 环境要求
 
@@ -19,6 +19,12 @@ uv sync --locked
 ```
 
 锁文件 `uv.lock` 已提交版本控制。安装或 CI 中应使用 `--locked`，避免运行时隐式改变依赖解析。
+
+实验四需要下载本地 Hugging Face embedding 时安装可选依赖：
+
+```powershell
+uv sync --locked --extra rag
+```
 
 ## 离线环境检查
 
@@ -77,6 +83,8 @@ uv run --locked lab doctor --live --env-file .env.openai
 - `unknown`：未探测，或因认证、网络、限流、含糊响应而无法判断。
 
 `unknown` 不会被当作 `unsupported`。后续结构化实验只能从明确 supported 的机制中选择。
+
+全部实现完成后的统一 live 验收流程见 [`docs/live-validation.md`](docs/live-validation.md)。测试可通过 `LAB_LIVE_ENV_FILE` 选择同一个 dotenv 档案；只有同时显式设置 `RUN_LIVE_TESTS=1` 或 `RUN_RAG_LIVE=1` 时才会联网、产生费用或下载模型。
 
 ## 本地数据
 
@@ -151,6 +159,61 @@ TAVILY_TIMEOUT_SECONDS=30
 lab runs events RUN_ID --type exp02.tool
 ```
 
+## 实验三：Agent 公平对照
+
+Agent 只负责产生 `ResearchPack`，并与 fixed variant 共用工具、预算和公共 finalizer：
+
+```powershell
+lab run exp03 --mode fixture --variant fixed
+lab run exp03 --mode fixture --variant agent
+lab compare exp03 --mode fixture --runs 3
+```
+
+三次比较只生成 smoke 结论；达到 20% 量化差异或 1 分 Rubric 差异时，报告会要求至少十次比较。live 模式需要 AI 与 Tavily 配置：
+
+Agent 的结构化来源会与本次实际 Tool exchange 绑定；模型无法通过返回一个 Schema 合法但并未读取过的来源绕过证据边界。
+
+```powershell
+lab compare exp03 --mode live --runs 3
+lab compare exp03 --mode live --runs 10
+```
+
+## 实验四：最小 RAG
+
+对同一知识集运行无 RAG、全文上下文和向量检索：
+
+```powershell
+lab run exp04 --variant no-rag
+lab run exp04 --variant full-context
+lab run exp04 --variant vector
+```
+
+默认使用确定性 fixed embedding，以便完全离线测试。真实本地模型会使用锁定的 revision、CPU/float32 和独立缓存：
+
+```powershell
+uv sync --locked --extra rag
+lab rag evaluate --embedding-profile auto --local-embeddings
+lab run exp04 --variant vector --local-embeddings
+```
+
+`rag evaluate` 保存逐查询排名、Recall@2/4/8、MRR、Profile 门禁和 400/800/1200 切片 × Top K 2/4/8 的完整矩阵。
+
+评估标注中的期望文档 ID 只用于计算排名指标，不会传给三种上下文 variant 的答案构造路径。运行摘要会保存 embedding、retrieval 和生成控制 hash。
+
+## 实验五：显式 LangGraph 工作流
+
+首次运行创建独立 run/thread，并在人工选题处 interrupt：
+
+```powershell
+lab run exp05 --mode fixture
+lab graph state THREAD_ID
+lab graph resume THREAD_ID --topic-id topic-career-roadmap --mode fixture
+```
+
+每次 resume 都创建新 run 但复用原 thread。`graph state` 只读显示最新 checkpoint、下一节点、interrupt payload 和历史摘要。本阶段没有 `graph retry`；节点失败恢复只通过官方 checkpoint 调用集成测试验证。
+
+resume 的 `--mode` 必须与 thread 初始 mode 一致；不一致会在 checkpoint 改变前被拒绝。
+
 ## 安全边界
 
 - `.env`、输出、runtime 和 cache 默认忽略；
@@ -167,7 +230,7 @@ lab runs events RUN_ID --type exp02.tool
 uv run --locked ruff check src tests
 uv run --locked pyright src tests
 uv lock --check
-uv run --locked pytest -m "not live"
+uv run --locked pytest -m "not live and not rag_live"
 ```
 
 默认测试完全离线。任何可能访问外部网络并产生费用的测试必须使用 `live` marker，并由开发者显式执行。
@@ -181,4 +244,4 @@ uv run --locked pytest -m "not live"
 5. `rag-evaluation`
 6. `explicit-langgraph-workflow`
 
-每个 change 必须完成实现、离线测试、少量真实验证和中文复盘后，再进入下一个阶段。
+前三个 change 已归档；实验三至五的实现、离线门禁和中文复盘已完成。需要 Provider 密钥或本地 embedding 下载的统一 live 验证仍由对应 OpenSpec 任务跟踪。

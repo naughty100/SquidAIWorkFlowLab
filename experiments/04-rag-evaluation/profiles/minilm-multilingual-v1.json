@@ -1,0 +1,18 @@
+{
+  "profile_id": "minilm-multilingual-v1",
+  "provider": "sentence-transformers",
+  "model_name": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+  "revision": "e8f8c211226b894fcb81acc59f3b34ba3efd5f42",
+  "device": "cpu",
+  "dtype": "float32",
+  "trust_remote_code": false,
+  "normalize": true,
+  "batch_size": 32,
+  "query_prefix": "",
+  "document_prefix": "",
+  "distance_metric": "cosine",
+  "expected_dimensions": 384,
+  "max_sequence_length": 128,
+  "cache_dir": "embeddings/minilm-multilingual-v1",
+  "profile_version": "1"
+}

@@ -1,0 +1,41 @@
+{
+  "dataset_version": "1",
+  "cases": [
+    {
+      "query_id": "q-career-path",
+      "query": "前端工程师转型 AI 应用工程师应该按什么学习路径推进？",
+      "expected_document_ids": ["doc-career-transition"],
+      "required_question_id": "rq-career-path"
+    },
+    {
+      "query_id": "q-schema-reliability",
+      "query": "如何评估结构化输出的传输成功和 Schema 合法性？",
+      "expected_document_ids": ["doc-structured-output"],
+      "required_question_id": "rq-schema-reliability"
+    },
+    {
+      "query_id": "q-tool-budget",
+      "query": "Tool Calling 的模型、搜索和网页读取预算怎样限制？",
+      "expected_document_ids": ["doc-tool-calling"],
+      "required_question_id": "rq-tool-budget"
+    },
+    {
+      "query_id": "q-agent-repeat",
+      "query": "Agent 为什么要在第三次相同工具调用时终止？",
+      "expected_document_ids": ["doc-agent-boundaries"],
+      "required_question_id": "rq-agent-repeat"
+    },
+    {
+      "query_id": "q-rag-metrics",
+      "query": "RAG 检索应该计算哪些 Recall 和 MRR 指标并怎样校验证据？",
+      "expected_document_ids": ["doc-rag-evaluation"],
+      "required_question_id": "rq-rag-metrics"
+    },
+    {
+      "query_id": "q-graph-resume",
+      "query": "LangGraph 如何通过 thread_id、SQLite checkpoint 和 interrupt 跨进程恢复？",
+      "expected_document_ids": ["doc-langgraph-recovery"],
+      "required_question_id": "rq-graph-resume"
+    }
+  ]
+}
